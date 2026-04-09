@@ -29,15 +29,15 @@ jobs:
     name: CLI (all targets)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
       - run: make dist-cli-all
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: artifacts-cli
           path: dist/
@@ -46,13 +46,13 @@ jobs:
     name: GUI (darwin amd64 + arm64)
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: "22"
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -62,7 +62,7 @@ jobs:
           make dist-darwin-arm64.dmg dist-darwin-amd64.dmg \
             APP_VERSION="$VERSION" APP_BUILD="$GITHUB_RUN_NUMBER"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: artifacts-gui-macos
           path: dist/
@@ -71,9 +71,9 @@ jobs:
     name: GUI (linux amd64)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -90,7 +90,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           make dist-linux-amd64 APP_VERSION="$VERSION"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: artifacts-gui-linux-amd64
           path: dist/
@@ -99,9 +99,9 @@ jobs:
     name: GUI (linux arm64)
     runs-on: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -118,7 +118,7 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           make dist-linux-arm64 APP_VERSION="$VERSION"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: artifacts-gui-linux-arm64
           path: dist/
@@ -130,9 +130,9 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -171,7 +171,7 @@ jobs:
           if (-not $iscc) { throw "ISCC.exe not found after Inno Setup install." }
           & $iscc /DBuildArch=amd64 "/DMyAppVersion=$ver" "${env:GITHUB_WORKSPACE}\installer\windows\setup.iss"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: artifacts-gui-windows-amd64
           path: dist/
@@ -186,9 +186,9 @@ jobs:
       run:
         shell: msys2 {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
@@ -231,7 +231,7 @@ jobs:
           if (-not $iscc) { throw "ISCC.exe not found after Inno Setup install." }
           & $iscc /DArm64=1 /DBuildArch=arm64 "/DMyAppVersion=$ver" "${env:GITHUB_WORKSPACE}\installer\windows\setup.iss"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: artifacts-gui-windows-arm64
           path: dist/
@@ -247,7 +247,7 @@ jobs:
       - build-gui-windows-arm64
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: artifacts-*
           path: release-assets
