@@ -902,6 +902,7 @@ func main() {
 	}
 
 	if runtime.GOOS == "darwin" {
+		platform.SetQuitAppleEventHandler(quitApplication)
 		platform.SetOnApplicationDidBecomeActive(func() {
 			fyne.Do(func() {
 				mainWinTrayMu.Lock()
