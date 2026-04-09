@@ -85,7 +85,9 @@ func formatBytes(n uint64) string {
 		exp++
 	}
 	suffix := []string{"KB", "MB", "GB", "TB", "PB"}[exp]
-	return fmt.Sprintf("%.2f %s", float64(n)/float64(div), suffix)
+	num := fmt.Sprintf("%.2f", float64(n)/float64(div))
+	num = strings.TrimRight(strings.TrimRight(num, "0"), ".")
+	return num + " " + suffix
 }
 
 // formatBytesCompact removes spaces from formatBytes for compact tray text.
