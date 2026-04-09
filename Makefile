@@ -14,15 +14,20 @@ MACOS_APP_ID := io.github.v2ray-subscription-data-usage-monitor
 MACOS_ICON := $(CURDIR)/assets/icons/v2ray-subscription-monitor.png
 FYNE ?= go run fyne.io/fyne/v2/cmd/fyne@v2.7.3
 CREATE_DMG ?= npx --yes create-dmg@8
-APP_VERSION ?= 0.0.1
+# Nearest ancestor tag (same as release ref when building from a tag). Override in CI: APP_VERSION=… APP_BUILD=…
+GIT_NEAREST_TAG := $(shell git describe --tags --abbrev=0 2>/dev/null)
+APP_VERSION ?= $(if $(strip $(GIT_NEAREST_TAG)),$(patsubst v%,%,$(GIT_NEAREST_TAG)),dev)
 APP_BUILD ?= 1
+
+# Injected into the GUI binary (main.appVersion); keep in sync with APP_VERSION / release workflow.
+GO_X_APP_VERSION := -X 'main.appVersion=$(APP_VERSION)'
 
 # Smaller binaries: strip symbol/DWARF tables, trim module paths, omit VCS metadata.
 # CGO_CFLAGS=-Os asks the C compiler to favor size for GLFW/native glue (clang/gcc).
 GO_RELEASE := -buildvcs=false -trimpath
-GO_LDFLAGS_STRIP := -ldflags="-s -w"
+GO_LDFLAGS_STRIP := -ldflags="-s -w $(GO_X_APP_VERSION)"
 # Suppress Apple ld warning: duplicate -lobjc (darwin only).
-GO_LDFLAGS_DARWIN := -ldflags="-s -w -extldflags=-Wl,-no_warn_duplicate_libraries"
+GO_LDFLAGS_DARWIN := -ldflags="-s -w $(GO_X_APP_VERSION) -extldflags=-Wl,-no_warn_duplicate_libraries"
 
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
@@ -56,7 +61,7 @@ build-cli:
 
 # Unstripped GUI binary for profiling / gdb / crash symbols.
 build-debug:
-	go build -o $(APP) .
+	go build -ldflags="$(GO_X_APP_VERSION)" -o $(APP) .
 
 install:
 	$(CGO_RELEASE) go install $(GO_BUILD_LOCAL) .

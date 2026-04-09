@@ -12,7 +12,7 @@ REPO_ROOT="$(cd "${2:?repo root}" && pwd)"
 OUT_DIR_ARG="${3:?out directory}"
 mkdir -p "$OUT_DIR_ARG"
 OUT_DIR="$(cd "$OUT_DIR_ARG" && pwd)"
-APP_VERSION="${4:-0.0.1}"
+APP_VERSION="${4:-dev}"
 
 APP="v2ray-subscription-monitor"
 DESKTOP_FILE="io.github.v2ray-subscription-data-usage-monitor.desktop"
@@ -101,7 +101,7 @@ export CGO_ENABLED=1
 export CGO_CFLAGS=-Os
 export GOOS=linux
 export GOARCH="$ARCH"
-go build -buildvcs=false -trimpath -ldflags="-s -w" -o "${APPDIR}/usr/bin/${APP}" .
+go build -buildvcs=false -trimpath -ldflags="-s -w -X main.appVersion=${APP_VERSION}" -o "${APPDIR}/usr/bin/${APP}" .
 
 export APPIMAGE_EXTRACT_AND_RUN=1
 

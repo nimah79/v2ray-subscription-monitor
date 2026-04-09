@@ -49,6 +49,11 @@ const appID = "io.github.v2ray-subscription-data-usage-monitor"
 // appTitle is the human-readable name: window title, tray menu header, and app metadata (taskbar/dock where supported).
 const appTitle = "V2Ray Subscription Monitor"
 
+// appVersion is set at link time by Make (latest git tag, or "dev"); unchanged for plain `go build`.
+var appVersion = "dev"
+
+func mainWindowTitle() string { return appTitle + " · " + appVersion }
+
 // mainClosedToTray: main window was hidden via close-to-tray (all platforms). macOS Dock reopen
 // uses it; Windows/Linux use it so native dialogs don't use a hidden owner window (which can restore the GUI).
 var (
@@ -142,8 +147,9 @@ func formatExpire(unix int64) string {
 
 func main() {
 	app.SetMetadata(fyne.AppMetadata{
-		ID:   appID,
-		Name: appTitle,
+		ID:      appID,
+		Name:    appTitle,
+		Version: appVersion,
 	})
 	a := app.NewWithID(appID)
 	appIcon := assets.AppIcon()
@@ -164,7 +170,7 @@ func main() {
 		}()
 	})
 
-	w := a.NewWindow(appTitle)
+	w := a.NewWindow(mainWindowTitle())
 	w.SetIcon(appIcon)
 
 	var logsWindow fyne.Window
@@ -410,8 +416,11 @@ func main() {
 	trayMenu := func() *fyne.Menu {
 		titleItem := fyne.NewMenuItem(appTitle, nil)
 		titleItem.Disabled = true
+		verItem := fyne.NewMenuItem("Version "+appVersion, nil)
+		verItem.Disabled = true
 		return fyne.NewMenu("",
 			titleItem,
+			verItem,
 			fyne.NewMenuItemSeparator(),
 			fyne.NewMenuItemWithIcon("Settings", theme.SettingsIcon(), func() { showMainWindow() }),
 			fyne.NewMenuItemWithIcon("Quit", theme.LogoutIcon(), func() { quitApplication() }),
@@ -836,7 +845,10 @@ func main() {
 		statusLabel,
 	)
 
-	mainCol := container.NewVBox(formTop, summary)
+	verLabel := widget.NewLabel("Version " + appVersion)
+	verLabel.Alignment = fyne.TextAlignTrailing
+
+	mainCol := container.NewVBox(formTop, summary, verLabel)
 	scroll := container.NewVScroll(mainCol)
 	colMin := mainCol.MinSize()
 	const prefWinWidth float32 = 760
