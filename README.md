@@ -4,6 +4,8 @@ Desktop app that **polls a subscription URL** (HTTP GET), reads traffic counters
 
 *This project is fully vibe-coded.*
 
+![V2Ray Subscription Monitor GUI Screenshot](images/v2ray-subscription-monitor-gui-screenshot.png)
+
 ## Features
 
 - Configurable **poll interval**, **request timeout**, and subscription URL (persisted locally).
