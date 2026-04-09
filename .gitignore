@@ -1,0 +1,14 @@
+dist/
+
+/v2ray-subscription-monitor
+/v2ray-subscription-monitor.exe
+/v2ray-subscription-cli
+/v2ray-subscription-cli.exe
+*.exe
+*.app
+*.test
+*.out
+.DS_Store
+
+.specstory/
+.vscode/

@@ -1,0 +1,224 @@
+# Release on tag v* — split jobs because the GUI is not “plain Go”.
+#
+# Cross-compiling with Go alone (GOOS/GOARCH) works when CGO_ENABLED=0. The CLI uses no C code, so one
+# ubuntu-latest job builds all six CLI binaries (see Makefile dist-cli-all).
+#
+# The Fyne monitor enables CGO (GLFW, OpenGL, platform glue). That ties the link step to a C toolchain and
+# OS-specific SDK/libraries. From a single Ubuntu runner you would need, per target, things like:
+#   • linux/arm64 — cross gcc + aarch64 sysroot or multiarch GL dev packages (fragile)
+#   • darwin/* — macOS SDK + osxcross (setup + Apple SDK terms)
+#   • windows/* — MinGW cross-compilers + matching GLFW for each arch
+# That is why CI uses native runners (macOS / ubuntu / windows / windows-arm) instead of only ubuntu-24.04.
+#
+# If you want one Docker image that cross-builds everything, look at fyne-cross / similar; it still bundles
+# those toolchains — it does not remove the requirement, it just prebuilds it.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-cli:
+    name: CLI (all targets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - run: make dist-cli-all
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-cli
+          path: dist/
+
+  build-gui-macos:
+    name: GUI (darwin amd64 + arm64)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - run: make dist-darwin-arm64 dist-darwin-amd64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-gui-macos
+          path: dist/
+
+  build-gui-linux-amd64:
+    name: GUI (linux amd64)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Fyne / GLFW build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config \
+            libgl1-mesa-dev xorg-dev libx11-dev libxrandr-dev \
+            libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev
+
+      - run: make dist-linux-amd64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-gui-linux-amd64
+          path: dist/
+
+  build-gui-linux-arm64:
+    name: GUI (linux arm64)
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Install Fyne / GLFW build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config \
+            libgl1-mesa-dev xorg-dev libx11-dev libxrandr-dev \
+            libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev
+
+      - run: make dist-linux-arm64
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-gui-linux-arm64
+          path: dist/
+
+  build-gui-windows-amd64:
+    name: GUI (windows amd64)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-glfw
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=1 CGO_CFLAGS=-Os GOOS=windows GOARCH=amd64 \
+            go build -buildvcs=false -trimpath -ldflags="-s -w" \
+            -o dist/v2ray-subscription-monitor-windows-amd64.exe .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-gui-windows-amd64
+          path: dist/
+
+  # Native Windows ARM64 + MSYS2 CLANGARM64 (aarch64 GLFW). x86_64 runners cannot CGO-build arm64 GUI.
+  # runs-on label: https://github.blog/changelog/2025-04-14-windows-arm64-hosted-runners-now-available-in-public-preview/
+  # (public repos / preview; private repos must use a different approach until GH enables the label there.)
+  build-gui-windows-arm64:
+    name: GUI (windows arm64)
+    runs-on: windows-11-arm
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANGARM64
+          update: true
+          install: >-
+            mingw-w64-clang-aarch64-clang
+            mingw-w64-clang-aarch64-pkg-config
+            mingw-w64-clang-aarch64-glfw
+
+      - name: Build
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=1 CGO_CFLAGS=-Os GOOS=windows GOARCH=arm64 \
+            go build -buildvcs=false -trimpath -ldflags="-s -w" \
+            -o dist/v2ray-subscription-monitor-windows-arm64.exe .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: artifacts-gui-windows-arm64
+          path: dist/
+
+  release:
+    name: Publish GitHub Release
+    needs:
+      - build-cli
+      - build-gui-macos
+      - build-gui-linux-amd64
+      - build-gui-linux-arm64
+      - build-gui-windows-amd64
+      - build-gui-windows-arm64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: artifacts-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: SHA256 checksums
+        working-directory: release-assets
+        run: |
+          ls -la
+          sha256sum v2ray-subscription-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          append_body: true
+          body: |
+            ### Downloads
+
+            | Prefix | Description |
+            |--------|-------------|
+            | `v2ray-subscription-monitor-*` | Full GUI (Fyne + system tray) |
+            | `v2ray-subscription-cli-*` | Headless probe, no CGO (~5–6 MiB) |
+
+            Verify with `sha256sum -c SHA256SUMS` after download.
+          files: |
+            release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
