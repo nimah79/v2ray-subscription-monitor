@@ -75,7 +75,7 @@ func formatBytes(n uint64) string {
 	if n == 0 {
 		return "0 B"
 	}
-	const unit = 1024
+	const unit = 1000
 	if n < unit {
 		return fmt.Sprintf("%d B", n)
 	}
@@ -84,7 +84,7 @@ func formatBytes(n uint64) string {
 		div *= unit
 		exp++
 	}
-	suffix := []string{"KiB", "MiB", "GiB", "TiB", "PiB"}[exp]
+	suffix := []string{"KB", "MB", "GB", "TB", "PB"}[exp]
 	return fmt.Sprintf("%.2f %s", float64(n)/float64(div), suffix)
 }
 
@@ -93,7 +93,7 @@ func formatBytesCompact(n uint64) string {
 	return strings.ReplaceAll(formatBytes(n), " ", "")
 }
 
-// parseWarnThresholdBytes converts a positive amount and unit "MB" or "GB" to bytes. Empty/zero amount => 0, true.
+// parseWarnThresholdBytes converts a positive amount and unit "MB" or "GB" to bytes (decimal MB/GB). Empty/zero amount => 0, true.
 func parseWarnThresholdBytes(amountStr, unit string) (uint64, bool) {
 	amountStr = strings.TrimSpace(amountStr)
 	if amountStr == "" || amountStr == "0" {
@@ -105,21 +105,21 @@ func parseWarnThresholdBytes(amountStr, unit string) (uint64, bool) {
 	}
 	switch strings.ToUpper(strings.TrimSpace(unit)) {
 	case "GB":
-		const maxGB = float64(1 << 20) // 1M GiB — sanity cap
+		const maxGB = 1e6 // sanity cap
 		if v > maxGB {
 			return 0, false
 		}
-		b := v * 1024 * 1024 * 1024
+		b := v * 1000 * 1000 * 1000
 		if b >= float64(1<<63) {
 			return 0, false
 		}
 		return uint64(b), true
 	case "MB":
-		const maxMB = float64(1 << 30) // large sanity cap
+		const maxMB = 1e9 // sanity cap
 		if v > maxMB {
 			return 0, false
 		}
-		b := v * 1024 * 1024
+		b := v * 1000 * 1000
 		if b >= float64(1<<63) {
 			return 0, false
 		}
