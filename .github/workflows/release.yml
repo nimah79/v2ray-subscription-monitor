@@ -123,6 +123,7 @@ jobs:
         with:
           msystem: MINGW64
           update: true
+          path-type: inherit
           install: >-
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-pkg-config
@@ -160,6 +161,7 @@ jobs:
         with:
           msystem: CLANGARM64
           update: true
+          path-type: inherit
           install: >-
             mingw-w64-clang-aarch64-clang
             mingw-w64-clang-aarch64-pkg-config
