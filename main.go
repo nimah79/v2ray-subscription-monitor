@@ -25,6 +25,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/driver"
 	"fyne.io/fyne/v2/driver/desktop"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
@@ -48,10 +49,11 @@ const appID = "io.github.v2ray-subscription-data-usage-monitor"
 // appTitle is the human-readable name: window title, tray menu header, and app metadata (taskbar/dock where supported).
 const appTitle = "V2Ray Subscription Monitor"
 
-// darwinMainInTray: main window was closed to tray; Dock / activation must call showMainWindow (GLFW has no focused window).
+// mainClosedToTray: main window was hidden via close-to-tray (all platforms). macOS Dock reopen
+// uses it; Windows/Linux use it so native dialogs don't use a hidden owner window (which can restore the GUI).
 var (
-	darwinDockRestoreMu sync.Mutex
-	darwinMainInTray    bool
+	mainWinTrayMu    sync.Mutex
+	mainClosedToTray bool
 )
 
 type fetchState struct {
@@ -166,22 +168,18 @@ func main() {
 	var logsWindow fyne.Window
 
 	showMainWindow := func() {
-		if runtime.GOOS == "darwin" {
-			darwinDockRestoreMu.Lock()
-			darwinMainInTray = false
-			darwinDockRestoreMu.Unlock()
-		}
+		mainWinTrayMu.Lock()
+		mainClosedToTray = false
+		mainWinTrayMu.Unlock()
 		platform.SetTrayOnlyMode(false)
 		applyDockIcon()
 		w.Show()
 		w.RequestFocus()
 	}
 	hideMainToTray := func() {
-		if runtime.GOOS == "darwin" {
-			darwinDockRestoreMu.Lock()
-			darwinMainInTray = true
-			darwinDockRestoreMu.Unlock()
-		}
+		mainWinTrayMu.Lock()
+		mainClosedToTray = true
+		mainWinTrayMu.Unlock()
 		if logsWindow != nil {
 			logsWindow.Hide()
 		}
@@ -375,6 +373,7 @@ func main() {
 	logsWindow.SetIcon(w.Icon())
 
 	var warningLatch bool
+	var warningLatchMu sync.Mutex
 	var consecutiveFails int
 	var failAlertLatch bool
 	var failStreakMu sync.Mutex
@@ -485,6 +484,39 @@ func main() {
 
 		desk.SetSystemTrayMenu(trayMenu())
 
+		// Native dialogs: tie to the Fyne top-level only when the main window is actually shown.
+		// A MessageBox owner HWND or zenity --attach on a hidden window can restore/focus the GUI on dismiss.
+		mainWinTrayMu.Lock()
+		inTray := mainClosedToTray
+		mainWinTrayMu.Unlock()
+		if runtime.GOOS == "windows" {
+			if nw, ok := w.(driver.NativeWindow); ok {
+				nw.RunNative(func(ctx any) {
+					wctx, ok := ctx.(driver.WindowsWindowContext)
+					if !ok || inTray || wctx.HWND == 0 {
+						platform.SetWindowsMessageOwner(0)
+						return
+					}
+					platform.SetWindowsMessageOwner(wctx.HWND)
+				})
+			}
+		} else if runtime.GOOS != "darwin" {
+			if nw, ok := w.(driver.NativeWindow); ok {
+				nw.RunNative(func(ctx any) {
+					if inTray {
+						platform.SetUnixZenityParentX11(0)
+						return
+					}
+					xctx, ok := ctx.(driver.X11WindowContext)
+					if ok && xctx.WindowHandle != 0 {
+						platform.SetUnixZenityParentX11(uint64(xctx.WindowHandle))
+						return
+					}
+					platform.SetUnixZenityParentX11(0)
+				})
+			}
+		}
+
 		switch {
 		case fetching:
 			desk.SetSystemTrayIcon(theme.ViewRefreshIcon())
@@ -510,19 +542,33 @@ func main() {
 		runOnMain(updateSystray)
 	})
 
-	evalWarning := func(used, total uint64, thresholdBytes uint64) {
+	// Called from the fetch goroutine, not fyne.Do: when the main window is hidden, the GLFW/Fyne
+	// loop may not drain fyne.Do until the window is shown, so native alerts must run here.
+	evalUsageWarningOffUIThread := func(used, total, thresholdBytes uint64) {
 		if thresholdBytes == 0 {
 			return
 		}
+		var msg string
+		var fire bool
+		warningLatchMu.Lock()
 		if used >= thresholdBytes {
 			if !warningLatch {
 				warningLatch = true
-				msg := fmt.Sprintf("Used data is %s (warning threshold %s). Total quota %s.",
+				fire = true
+				msg = fmt.Sprintf("Used data is %s (warning threshold %s). Total quota %s.",
 					formatBytes(used), formatBytes(thresholdBytes), formatBytes(total))
-				dialog.ShowInformation("Usage warning", msg, w)
 			}
 		} else {
 			warningLatch = false
+		}
+		warningLatchMu.Unlock()
+		if !fire {
+			return
+		}
+		if !platform.ShowNativeInfo("Usage warning", msg) {
+			fyne.Do(func() {
+				dialog.ShowInformation("Usage warning", msg, w)
+			})
 		}
 	}
 
@@ -597,16 +643,23 @@ func main() {
 		}
 		failStreakMu.Unlock()
 
+		// Refresh tray/state before any native modal. NSAlert runModal / dispatch_sync on main would
+		// otherwise block processing of this fyne.Do, leaving the tray stuck on the “refresh” icon.
 		runOnMain(func() {
 			refreshLogs()
 			updateSummary()
 			updateSystray()
-			if res.Err == nil {
-				evalWarning(res.Stats.Used(), res.Stats.Total, warnThresh)
-			} else if showFailAlert {
-				dialog.ShowInformation("Update failed", failAlertMsg, w)
-			}
 		})
+
+		if res.Err == nil {
+			evalUsageWarningOffUIThread(res.Stats.Used(), res.Stats.Total, warnThresh)
+		} else if showFailAlert {
+			if !platform.ShowNativeInfo("Update failed", failAlertMsg) {
+				fyne.Do(func() {
+					dialog.ShowInformation("Update failed", failAlertMsg, w)
+				})
+			}
+		}
 	}
 
 	applyPrefs := func() error {
@@ -853,13 +906,24 @@ func main() {
 	if runtime.GOOS == "darwin" {
 		platform.SetOnApplicationDidBecomeActive(func() {
 			fyne.Do(func() {
-				darwinDockRestoreMu.Lock()
-				need := darwinMainInTray
-				darwinDockRestoreMu.Unlock()
+				mainWinTrayMu.Lock()
+				need := mainClosedToTray
+				mainWinTrayMu.Unlock()
 				if need {
 					showMainWindow()
 				}
 			})
+		})
+		// NSAlert temporarily uses Regular activation policy; restore tray-only policy after dismiss.
+		platform.SetAfterNativeModal(func() {
+			mainWinTrayMu.Lock()
+			inTray := mainClosedToTray
+			mainWinTrayMu.Unlock()
+			if inTray {
+				platform.SetTrayOnlyMode(true)
+			} else {
+				platform.SetTrayOnlyMode(false)
+			}
 		})
 	}
 

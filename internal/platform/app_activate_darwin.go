@@ -26,13 +26,13 @@ func platformAppDidBecomeActiveGo() {
 }
 
 var (
-	becomeMu          sync.Mutex
-	becomeCb          func()
-	becomeRegistered  atomic.Bool
+	becomeMu         sync.Mutex
+	becomeCb         func()
+	becomeRegistered atomic.Bool
 )
 
-// SetOnApplicationDidBecomeActive registers a callback on the AppKit main thread when the app becomes
-// active (e.g. user clicks the Dock icon). Used to re-show the main window after close-to-tray.
+// SetOnApplicationDidBecomeActive registers a callback when the user activates the app via the Dock
+// (kAEReopenApplication), not for every NSApplicationDidBecomeActive (e.g. NSAlert dismiss).
 // Passing nil clears the callback; the notification observer is registered once.
 func SetOnApplicationDidBecomeActive(fn func()) {
 	becomeMu.Lock()

@@ -4,10 +4,11 @@
 
 extern void platformAppDidBecomeActiveGo(void);
 
-static id becomeActiveObserver = nil;
 static BOOL gAppleEventRegistered = NO;
 
-// Receives kAEReopenApplication (Dock icon click) without touching NSApp.delegate — safe alongside GLFW/Fyne.
+// kAEReopenApplication = Dock icon click for a running app. Do NOT use
+// NSApplicationDidBecomeActiveNotification here — dismissing an NSAlert also becomes active and would
+// incorrectly re-open the main window while tray-only.
 
 @interface V2RAYDockReopenHandler : NSObject
 @end
@@ -23,16 +24,6 @@ static BOOL gAppleEventRegistered = NO;
 static V2RAYDockReopenHandler *gReopenHandler = nil;
 
 void platform_register_did_become_active(void) {
-	if (becomeActiveObserver == nil) {
-		NSNotificationCenter *nc = [NSNotificationCenter defaultCenter];
-		becomeActiveObserver = [nc addObserverForName:NSApplicationDidBecomeActiveNotification
-		                                         object:nil
-		                                          queue:[NSOperationQueue mainQueue]
-		                                     usingBlock:^(__unused NSNotification *note) {
-			                                     platformAppDidBecomeActiveGo();
-		                                     }];
-	}
-
 	if (gAppleEventRegistered) {
 		return;
 	}
