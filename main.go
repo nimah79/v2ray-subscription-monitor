@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
+	"v2ray-subscription-data-usage-monitor/assets"
 	"v2ray-subscription-data-usage-monitor/internal/logbuf"
 	"v2ray-subscription-data-usage-monitor/internal/platform"
 	"v2ray-subscription-data-usage-monitor/internal/subscription"
-	"v2ray-subscription-data-usage-monitor/assets"
 	"v2ray-subscription-data-usage-monitor/internal/trayicon"
 	"v2ray-subscription-data-usage-monitor/internal/trayquit"
 
@@ -47,6 +47,12 @@ const appID = "io.github.v2ray-subscription-data-usage-monitor"
 
 // appTitle is the human-readable name: window title, tray menu header, and app metadata (taskbar/dock where supported).
 const appTitle = "V2Ray Subscription Monitor"
+
+// darwinMainInTray: main window was closed to tray; Dock / activation must call showMainWindow (GLFW has no focused window).
+var (
+	darwinDockRestoreMu sync.Mutex
+	darwinMainInTray    bool
+)
 
 type fetchState struct {
 	mu         sync.Mutex
@@ -160,12 +166,22 @@ func main() {
 	var logsWindow fyne.Window
 
 	showMainWindow := func() {
+		if runtime.GOOS == "darwin" {
+			darwinDockRestoreMu.Lock()
+			darwinMainInTray = false
+			darwinDockRestoreMu.Unlock()
+		}
 		platform.SetTrayOnlyMode(false)
 		applyDockIcon()
 		w.Show()
 		w.RequestFocus()
 	}
 	hideMainToTray := func() {
+		if runtime.GOOS == "darwin" {
+			darwinDockRestoreMu.Lock()
+			darwinMainInTray = true
+			darwinDockRestoreMu.Unlock()
+		}
 		if logsWindow != nil {
 			logsWindow.Hide()
 		}
@@ -831,6 +847,19 @@ func main() {
 			refreshLogs()
 			updateSummary()
 			updateSystray()
+		})
+	}
+
+	if runtime.GOOS == "darwin" {
+		platform.SetOnApplicationDidBecomeActive(func() {
+			fyne.Do(func() {
+				darwinDockRestoreMu.Lock()
+				need := darwinMainInTray
+				darwinDockRestoreMu.Unlock()
+				if need {
+					showMainWindow()
+				}
+			})
 		})
 	}
 
