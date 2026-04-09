@@ -9,7 +9,9 @@ set -euo pipefail
 
 ARCH="${1:?first arg: amd64 or arm64}"
 REPO_ROOT="$(cd "${2:?repo root}" && pwd)"
-OUT_DIR="$(cd "${3:?out directory}" && pwd)"
+OUT_DIR_ARG="${3:?out directory}"
+mkdir -p "$OUT_DIR_ARG"
+OUT_DIR="$(cd "$OUT_DIR_ARG" && pwd)"
 APP_VERSION="${4:-0.0.1}"
 
 APP="v2ray-subscription-monitor"
@@ -45,7 +47,6 @@ else
 fi
 
 need_cmd go
-mkdir -p "$OUT_DIR"
 
 CACHE="${REPO_ROOT}/.cache/appimage-tools"
 mkdir -p "$CACHE"
