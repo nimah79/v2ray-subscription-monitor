@@ -389,10 +389,10 @@ func main() {
 		pollMu.Unlock()
 	}
 
-	// Fyne's GLFW driver only runs trayStop (systray nativeEnd + Quit) from driver.Quit when
-	// curWindow != nil. After hiding the main window to the tray, GLFW focus can be nil, so
-	// App.Quit would skip systray teardown. Mirror RunWithExternalLoop's end callback here,
-	// on the UI thread, before Quit (trayquit is idempotent if the driver also runs trayStop).
+	// Fyne's GLFW driver only runs trayStop from driver.Quit when curWindow != nil; after
+	// close-to-tray, focus can be nil so the driver would skip systray teardown. Always mirror
+	// RunWithExternalLoop's end callback here instead of briefly showing the window (which
+	// flashed the GUI on Quit). trayquit is idempotent if the driver also runs trayStop.
 	quitApplication := func() {
 		stopPolling()
 		platform.SetTrayOnlyModeSync(false)
@@ -400,8 +400,6 @@ func main() {
 			if logsWindow != nil {
 				logsWindow.Hide()
 			}
-			w.Show()
-			w.RequestFocus()
 			trayquit.TearDownSystrayForExternalLoop()
 			a.Quit()
 		})
