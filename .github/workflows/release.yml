@@ -205,6 +205,10 @@ jobs:
       - name: Build
         run: |
           mkdir -p dist
+          # path-type: inherit can put a host x86 gcc ahead of MSYS2; CGO then mis-assembles runtime/cgo/gcc_arm64.S.
+          : "${MINGW_PREFIX:=/clangarm64}"
+          export CC="${MINGW_PREFIX}/bin/clang.exe"
+          export CXX="${MINGW_PREFIX}/bin/clang++.exe"
           CGO_ENABLED=1 CGO_CFLAGS=-Os GOOS=windows GOARCH=arm64 \
             go build -buildvcs=false -trimpath -ldflags="-s -w" \
             -o dist/v2ray-subscription-monitor-windows-arm64.exe .
