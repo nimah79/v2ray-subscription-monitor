@@ -4,7 +4,8 @@
 # ubuntu-latest job builds all six CLI binaries (see Makefile dist-cli-all).
 #
 # The Fyne monitor enables CGO (GLFW, OpenGL, platform glue). That ties the link step to a C toolchain and
-# OS-specific SDK/libraries. From a single Ubuntu runner you would need, per target, things like:
+# OS-specific SDK/libraries. Linux GUI jobs emit AppImages (linuxdeploy + appimagetool). From a single
+# Ubuntu runner you would need, per target, things like:
 #   • linux/arm64 — cross gcc + aarch64 sysroot or multiarch GL dev packages (fragile)
 #   • darwin/* — macOS SDK + osxcross (setup + Apple SDK terms)
 #   • windows/* — MinGW cross-compilers + matching GLFW for each arch
@@ -47,11 +48,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
 
-      - run: make dist-darwin-arm64 dist-darwin-amd64
+      - name: Build macOS GUI (.dmg installers)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          make dist-darwin-arm64.dmg dist-darwin-amd64.dmg \
+            APP_VERSION="$VERSION" APP_BUILD="$GITHUB_RUN_NUMBER"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -71,11 +80,15 @@ jobs:
       - name: Install Fyne / GLFW build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config \
+          sudo apt-get install -y build-essential pkg-config patchelf \
             libgl1-mesa-dev xorg-dev libx11-dev libxrandr-dev \
-            libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev
+            libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev \
+            librsvg2-bin
 
-      - run: make dist-linux-amd64
+      - name: Build Linux GUI (AppImage)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          make dist-linux-amd64 APP_VERSION="$VERSION"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -95,11 +108,15 @@ jobs:
       - name: Install Fyne / GLFW build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config \
+          sudo apt-get install -y build-essential pkg-config patchelf \
             libgl1-mesa-dev xorg-dev libx11-dev libxrandr-dev \
-            libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev
+            libxinerama-dev libxcursor-dev libxi-dev libxxf86vm-dev \
+            librsvg2-bin
 
-      - run: make dist-linux-arm64
+      - name: Build Linux GUI (AppImage)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          make dist-linux-arm64 APP_VERSION="$VERSION"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -135,6 +152,24 @@ jobs:
           CGO_ENABLED=1 CGO_CFLAGS=-Os GOOS=windows GOARCH=amd64 \
             go build -buildvcs=false -trimpath -ldflags="-s -w" \
             -o dist/v2ray-subscription-monitor-windows-amd64.exe .
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Build GUI installer (amd64)
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $ver = $tag.TrimStart('v')
+          if ($ver -notmatch '^\d') { $ver = "0.0.1" }
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+          )
+          $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe not found after Inno Setup install." }
+          & $iscc /DBuildArch=amd64 "/DMyAppVersion=$ver" "${env:GITHUB_WORKSPACE}\installer\windows\setup.iss"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -173,6 +208,24 @@ jobs:
           CGO_ENABLED=1 CGO_CFLAGS=-Os GOOS=windows GOARCH=arm64 \
             go build -buildvcs=false -trimpath -ldflags="-s -w" \
             -o dist/v2ray-subscription-monitor-windows-arm64.exe .
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Build GUI installer (arm64)
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $ver = $tag.TrimStart('v')
+          if ($ver -notmatch '^\d') { $ver = "0.0.1" }
+          $candidates = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe"
+          )
+          $iscc = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe not found after Inno Setup install." }
+          & $iscc /DArm64=1 /DBuildArch=arm64 "/DMyAppVersion=$ver" "${env:GITHUB_WORKSPACE}\installer\windows\setup.iss"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -216,7 +269,10 @@ jobs:
 
             | Prefix | Description |
             |--------|-------------|
-            | `v2ray-subscription-monitor-*` | Full GUI (Fyne + system tray) |
+            | `v2ray-subscription-monitor-*.dmg` | **macOS** — DMG built with [create-dmg](https://github.com/sindresorhus/create-dmg) (app + **Applications** shortcut, drag-and-drop) |
+            | `v2ray-subscription-monitor-windows-*-setup.exe` | **Windows** — GUI installer ([Inno Setup](https://jrsoftware.org/isinfo.php), per-user folder, shortcuts) |
+            | `v2ray-subscription-monitor-linux-*.AppImage` | **Linux** — GUI [AppImage](https://appimage.org/) ([linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) + appimagetool; chmod +x, then run) |
+            | `v2ray-subscription-monitor-*` (other names) | **macOS / Windows** — loose GUI binary where applicable (portable `.exe` on Windows) |
             | `v2ray-subscription-cli-*` | Headless probe, no CGO (~5–6 MiB) |
 
             Verify with `sha256sum -c SHA256SUMS` after download.

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=V2Ray Subscription Monitor
+GenericName=Subscription usage monitor
+Comment=Monitor V2Ray subscription traffic (Subscription-Userinfo)
+Exec=v2ray-subscription-monitor
+Icon=v2ray-subscription-monitor
+Terminal=false
+Categories=Network;Utility;

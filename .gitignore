@@ -12,3 +12,5 @@ dist/
 
 .specstory/
 .vscode/
+
+.cache/

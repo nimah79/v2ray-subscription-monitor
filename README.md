@@ -61,21 +61,25 @@ First run: enter your subscription URL, set options, then **Apply & start pollin
 
 ## Release binaries (`dist/`)
 
-The **Makefile** can place cross-built binaries under **`dist/`** (gitignored):
+The **Makefile** can place cross-built artifacts under **`dist/`** (gitignored):
 
 | Target | Output |
 |--------|--------|
-| `make dist` / `make dist-all` | All six: darwin amd64/arm64, linux amd64/arm64, windows amd64/arm64 (`.exe`) |
-| `make dist-darwin` | macOS only |
-| `make dist-linux` | Linux only |
-| `make dist-windows` | Windows only |
-| `make dist-darwin-arm64`, etc. | Single architecture |
+| `make dist` / `make dist-all` | **On macOS:** darwin **`.dmg`** (amd64 + arm64), plus **Linux `.AppImage`** targets (build on Linux to produce them) + Windows binaries. **On Linux:** same matrix, and **GUI Linux output is `dist/*.AppImage`** ([AppImage](https://appimage.org/); see `installer/linux/build-appimage.sh`). **On Windows:** adds **`dist/*-setup.exe`**. **Elsewhere:** darwin/windows loose binaries; Linux AppImages require a Linux host (matching arch). |
+| `make dist-darwin-amd64.dmg` / `dist-darwin-arm64.dmg` | **macOS only** — `fyne package` + [create-dmg](https://github.com/sindresorhus/create-dmg) (drag app to **Applications**). Needs **Node.js** for `npx`. Not notarized. |
+| `make dist-windows-installers` / `dist-windows-amd64-setup` / `dist-windows-arm64-setup` | **Windows only** — builds `dist/...-setup.exe` after the matching portable `.exe`. Requires **Inno Setup** (`ISCC.exe`; override with `make ISCC=...`). |
+| `make dist-darwin` | macOS GUI outputs (`.dmg` when host is macOS) |
+| `make dist-linux` | Linux only — **`dist/v2ray-subscription-monitor-linux-{amd64,arm64}.AppImage`** |
+| `make dist-windows` | Windows portable `.exe` plus **setup installers** when host is Windows |
+| `make dist-darwin-arm64`, etc. | Single architecture (macOS: builds toward `.dmg` when on Darwin) |
 | `make clean-dist` | Remove `dist/` |
 | `make dist-cli-all` | Six **CLI** binaries (`v2ray-subscription-cli-*`, **no CGO** — easy cross-compile) |
 | `make dist-cli-darwin`, `dist-cli-linux`, `dist-cli-windows` | CLI per OS |
 | `make dist-cli-darwin-arm64`, etc. | Single CLI architecture |
 
 Cross-compiling **Fyne** to another OS usually needs a matching **C cross-compiler** and often `CC` / `CXX`. A common pattern is a **CI matrix** (one job per OS) running the corresponding `make dist-*` target on a native runner. **CLI** archives can be built from any host with `make dist-cli-all` (`CGO_ENABLED=0`).
+
+On **Linux**, packaging the GUI as an **AppImage** uses `installer/linux/build-appimage.sh` (downloads [linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) + [appimagetool](https://github.com/AppImage/AppImageKit) into `.cache/appimage-tools/`). Install the same build deps as in CI **plus** `patchelf`; use `librsvg2-bin` if `assets/icons/v2ray-subscription-monitor.png` is absent (icon is generated from `v2ray.svg`). The host CPU must match the target (`amd64` on x86_64, `arm64` on aarch64).
 
 ## Subscription-Userinfo
 
