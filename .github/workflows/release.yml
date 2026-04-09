@@ -247,6 +247,11 @@ jobs:
       - build-gui-windows-arm64
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
       - uses: actions/download-artifact@v8
         with:
           pattern: artifacts-*
@@ -260,26 +265,74 @@ jobs:
           sha256sum v2ray-subscription-* > SHA256SUMS
           cat SHA256SUMS
 
+      - name: Write release body (commits since previous tag)
+        run: |
+          set -euo pipefail
+          REPO="${{ github.repository }}"
+          CURRENT_TAG="${{ github.ref_name }}"
+
+          PREV_TAG=""
+          seen=""
+          while IFS= read -r t; do
+            if [[ "$t" == "$CURRENT_TAG" ]]; then
+              seen=1
+              continue
+            fi
+            if [[ -n "$seen" ]]; then
+              PREV_TAG="$t"
+              break
+            fi
+          done < <(git tag -l 'v*' --sort=-v:refname)
+
+          if [[ -n "$PREV_TAG" ]]; then
+            RANGE="$PREV_TAG..$CURRENT_TAG"
+            COMPARE_URL="https://github.com/$REPO/compare/${PREV_TAG}...${CURRENT_TAG}"
+            intro="Commits since [\`$PREV_TAG\`](https://github.com/$REPO/releases/tag/$PREV_TAG) (oldest first):"
+          else
+            ROOT="$(git rev-list --max-parents=0 HEAD | tail -n1)"
+            RANGE="$ROOT..$CURRENT_TAG"
+            COMPARE_URL="https://github.com/$REPO/compare/${ROOT}...${CURRENT_TAG}"
+            intro="First release tagged \`$CURRENT_TAG\`; commits from repository root (oldest first):"
+          fi
+
+          mapfile -t COMMIT_LINES < <(git log "$RANGE" --reverse --format="%H	%s")
+
+          {
+            echo "## Changes"
+            echo ""
+            echo "$intro"
+            echo ""
+            echo "[Full commit range on GitHub]($COMPARE_URL)"
+            echo ""
+            for line in "${COMMIT_LINES[@]}"; do
+              [[ -z "$line" ]] && continue
+              hash="${line%%	*}"
+              subject="${line#*	}"
+              echo "- [\`${hash:0:7}\`](https://github.com/$REPO/commit/$hash) $subject"
+            done
+            echo ""
+            echo "### Downloads"
+            echo ""
+            echo "| Prefix | Description |"
+            echo "|--------|-------------|"
+            echo "| \`v2ray-subscription-monitor-*.dmg\` | **macOS** — DMG built with [create-dmg](https://github.com/sindresorhus/create-dmg) (app + **Applications** shortcut, drag-and-drop) |"
+            echo "| \`v2ray-subscription-monitor-windows-*-setup.exe\` | **Windows** — GUI installer ([Inno Setup](https://jrsoftware.org/isinfo.php), per-user folder, shortcuts) |"
+            echo "| \`v2ray-subscription-monitor-linux-*.AppImage\` | **Linux** — GUI [AppImage](https://appimage.org/) ([linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) + appimagetool; chmod +x, then run) |"
+            echo "| \`v2ray-subscription-monitor-*\` (other names) | **macOS / Windows** — loose GUI binary where applicable (portable \`.exe\` on Windows) |"
+            echo "| \`v2ray-subscription-cli-*\` | Headless probe, no CGO (~5–6 MiB) |"
+            echo ""
+            echo "Verify with \`sha256sum -c SHA256SUMS\` after download."
+          } > "${GITHUB_WORKSPACE}/release_body.md"
+          echo "--- release body preview ---"
+          cat "${GITHUB_WORKSPACE}/release_body.md"
+
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: ${{ github.ref_name }}
           draft: false
           prerelease: ${{ contains(github.ref_name, '-') }}
-          generate_release_notes: true
-          append_body: true
-          body: |
-            ### Downloads
-
-            | Prefix | Description |
-            |--------|-------------|
-            | `v2ray-subscription-monitor-*.dmg` | **macOS** — DMG built with [create-dmg](https://github.com/sindresorhus/create-dmg) (app + **Applications** shortcut, drag-and-drop) |
-            | `v2ray-subscription-monitor-windows-*-setup.exe` | **Windows** — GUI installer ([Inno Setup](https://jrsoftware.org/isinfo.php), per-user folder, shortcuts) |
-            | `v2ray-subscription-monitor-linux-*.AppImage` | **Linux** — GUI [AppImage](https://appimage.org/) ([linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) + appimagetool; chmod +x, then run) |
-            | `v2ray-subscription-monitor-*` (other names) | **macOS / Windows** — loose GUI binary where applicable (portable `.exe` on Windows) |
-            | `v2ray-subscription-cli-*` | Headless probe, no CGO (~5–6 MiB) |
-
-            Verify with `sha256sum -c SHA256SUMS` after download.
+          body_path: release_body.md
           files: |
             release-assets/*
         env:
