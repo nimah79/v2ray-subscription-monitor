@@ -149,9 +149,11 @@ jobs:
       - name: Build
         run: |
           mkdir -p dist
+          VER="${GITHUB_REF_NAME#v}"
+          test -n "$VER" || VER="dev"
           CGO_ENABLED=1 CGO_CFLAGS=-Os GOOS=windows GOARCH=amd64 \
-            go build -buildvcs=false -trimpath -ldflags="-s -w" \
-            -o dist/v2ray-subscription-monitor-windows-amd64.exe .
+            go build -buildvcs=false -trimpath -ldflags="-s -w -X 'main.appVersion=${VER}'" \
+            -o "dist/v2ray-subscription-monitor-${VER}-windows-amd64.exe" .
 
       - name: Install Inno Setup
         shell: pwsh
@@ -205,13 +207,15 @@ jobs:
       - name: Build
         run: |
           mkdir -p dist
+          VER="${GITHUB_REF_NAME#v}"
+          test -n "$VER" || VER="dev"
           # path-type: inherit can put a host x86 gcc ahead of MSYS2; CGO then mis-assembles runtime/cgo/gcc_arm64.S.
           : "${MINGW_PREFIX:=/clangarm64}"
           export CC="${MINGW_PREFIX}/bin/clang.exe"
           export CXX="${MINGW_PREFIX}/bin/clang++.exe"
           CGO_ENABLED=1 CGO_CFLAGS=-Os GOOS=windows GOARCH=arm64 \
-            go build -buildvcs=false -trimpath -ldflags="-s -w" \
-            -o dist/v2ray-subscription-monitor-windows-arm64.exe .
+            go build -buildvcs=false -trimpath -ldflags="-s -w -X 'main.appVersion=${VER}'" \
+            -o "dist/v2ray-subscription-monitor-${VER}-windows-arm64.exe" .
 
       - name: Install Inno Setup
         shell: pwsh
@@ -315,11 +319,11 @@ jobs:
             echo ""
             echo "| Prefix | Description |"
             echo "|--------|-------------|"
-            echo "| \`v2ray-subscription-monitor-*.dmg\` | **macOS** — DMG built with [create-dmg](https://github.com/sindresorhus/create-dmg) (app + **Applications** shortcut, drag-and-drop) |"
-            echo "| \`v2ray-subscription-monitor-windows-*-setup.exe\` | **Windows** — GUI installer ([Inno Setup](https://jrsoftware.org/isinfo.php), per-user folder, shortcuts) |"
-            echo "| \`v2ray-subscription-monitor-linux-*.AppImage\` | **Linux** — GUI [AppImage](https://appimage.org/) ([linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) + appimagetool; chmod +x, then run) |"
-            echo "| \`v2ray-subscription-monitor-*\` (other names) | **macOS / Windows** — loose GUI binary where applicable (portable \`.exe\` on Windows) |"
-            echo "| \`v2ray-subscription-cli-*\` | Headless probe, no CGO (~5–6 MiB) |"
+            echo "| \`v2ray-subscription-monitor-<ver>-*.dmg\` | **macOS** — DMG built with [create-dmg](https://github.com/sindresorhus/create-dmg) (app + **Applications** shortcut, drag-and-drop) |"
+            echo "| \`v2ray-subscription-monitor-<ver>-windows-*-setup.exe\` | **Windows** — GUI installer ([Inno Setup](https://jrsoftware.org/isinfo.php), per-user folder, shortcuts) |"
+            echo "| \`v2ray-subscription-monitor-<ver>-linux-*.AppImage\` | **Linux** — GUI [AppImage](https://appimage.org/) ([linuxdeploy](https://github.com/linuxdeploy/linuxdeploy) + appimagetool; chmod +x, then run) |"
+            echo "| \`v2ray-subscription-monitor-<ver>-*\` (other names) | **macOS / Windows** — loose GUI binary where applicable (portable \`.exe\` on Windows) |"
+            echo "| \`v2ray-subscription-cli-<ver>-*\` | Headless probe, no CGO (~5–6 MiB) |"
             echo ""
             echo "Verify with \`sha256sum -c SHA256SUMS\` after download."
           } > "${GITHUB_WORKSPACE}/release_body.md"

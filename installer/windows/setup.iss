@@ -25,7 +25,7 @@ DefaultDirName={localappdata}\Programs\{#MyAppName}
 DisableProgramGroupPage=yes
 CloseApplications=no
 OutputDir=..\..\dist
-OutputBaseFilename=v2ray-subscription-monitor-windows-{#BuildArch}-setup
+OutputBaseFilename=v2ray-subscription-monitor-{#MyAppVersion}-windows-{#BuildArch}-setup
 UninstallDisplayIcon={app}\v2ray-subscription-monitor.exe
 Compression=lzma2
 SolidCompression=yes
@@ -44,7 +44,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "..\..\dist\v2ray-subscription-monitor-windows-{#BuildArch}.exe"; DestDir: "{app}"; DestName: "v2ray-subscription-monitor.exe"; Flags: ignoreversion
+Source: "..\..\dist\v2ray-subscription-monitor-{#MyAppVersion}-windows-{#BuildArch}.exe"; DestDir: "{app}"; DestName: "v2ray-subscription-monitor.exe"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\v2ray-subscription-monitor.exe"

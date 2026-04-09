@@ -27,7 +27,7 @@ Concise context for anyone (human or agent) changing this repository.
 
 ## Build
 
-- **`make build`** — Release-oriented flags: `-buildvcs=false`, `-trimpath`, `-ldflags` (strip DWARF/symbol table + `-X main.appVersion=…`), `CGO_CFLAGS=-Os` for smaller native code, and on Darwin `-extldflags=-Wl,-no_warn_duplicate_libraries`. **`APP_VERSION`** defaults to the latest ancestor git tag (`v` prefix stripped) or `dev`; override when packaging.
+- **`make build`** — Release-oriented flags: `-buildvcs=false`, `-trimpath`, `-ldflags` (strip DWARF/symbol table + `-X main.appVersion=…`), `CGO_CFLAGS=-Os` for smaller native code, and on Darwin `-extldflags=-Wl,-no_warn_duplicate_libraries`. **`APP_VERSION`** defaults to the latest ancestor git tag (`v` prefix stripped) or `dev`; override when packaging. **Outputs** `v2ray-subscription-monitor-<APP_VERSION>` (and **`dist/`** artifacts use the same version infix).
 - **`make build-debug`** — No strip; still injects **`main.appVersion`** via `-ldflags`.
 - **`make build-cli` / `make dist-cli-*`** — Headless binary; `CGO_ENABLED=0`; cross-compile without a C toolchain.
 - **`make dist-*`** (GUI) — Same strip/trim/VCS flags as `make build`, plus `CGO_CFLAGS=-Os`. Cross-builds need appropriate toolchains.

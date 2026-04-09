@@ -50,7 +50,7 @@ Use **`-json`** for machine-readable output (scripts, monitoring). The CLI reuse
 go run .
 # or (recommended: smaller binary — strip debug, trim paths, omit VCS stamp, CGO -Os)
 make build
-# writes ./v2ray-subscription-monitor (Darwin: also suppresses duplicate -lobjc ld warning)
+# writes ./v2ray-subscription-monitor-<version> (version from latest git tag, or `dev`; Darwin: also suppresses duplicate -lobjc ld warning)
 ```
 
 For a **larger unstripped** binary (better stack traces / debuggers), use `make build-debug`.
@@ -69,11 +69,11 @@ The **Makefile** can place cross-built artifacts under **`dist/`** (gitignored):
 | `make dist-darwin-amd64.dmg` / `dist-darwin-arm64.dmg` | **macOS only** — `fyne package` + [create-dmg](https://github.com/sindresorhus/create-dmg) (drag app to **Applications**). Needs **Node.js** for `npx`. Not notarized. |
 | `make dist-windows-installers` / `dist-windows-amd64-setup` / `dist-windows-arm64-setup` | **Windows only** — builds `dist/...-setup.exe` after the matching portable `.exe`. Requires **Inno Setup** (`ISCC.exe`; override with `make ISCC=...`). |
 | `make dist-darwin` | macOS GUI outputs (`.dmg` when host is macOS) |
-| `make dist-linux` | Linux only — **`dist/v2ray-subscription-monitor-linux-{amd64,arm64}.AppImage`** |
+| `make dist-linux` | Linux only — **`dist/v2ray-subscription-monitor-<version>-linux-{amd64,arm64}.AppImage`** |
 | `make dist-windows` | Windows portable `.exe` plus **setup installers** when host is Windows |
 | `make dist-darwin-arm64`, etc. | Single architecture (macOS: builds toward `.dmg` when on Darwin) |
 | `make clean-dist` | Remove `dist/` |
-| `make dist-cli-all` | Six **CLI** binaries (`v2ray-subscription-cli-*`, **no CGO** — easy cross-compile) |
+| `make dist-cli-all` | Six **CLI** binaries (`v2ray-subscription-cli-<version>-*`, **no CGO** — easy cross-compile) |
 | `make dist-cli-darwin`, `dist-cli-linux`, `dist-cli-windows` | CLI per OS |
 | `make dist-cli-darwin-arm64`, etc. | Single CLI architecture |
 
