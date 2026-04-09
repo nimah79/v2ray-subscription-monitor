@@ -84,7 +84,7 @@ APPDIR="${WORKDIR}/AppDir"
 mkdir -p "${APPDIR}/usr/bin"
 mkdir -p "${APPDIR}/usr/share/applications"
 
-ICON_SRC="${WORKDIR}/icon.png"
+ICON_SRC="${WORKDIR}/v2ray-subscription-monitor.png"
 if [[ -f "${REPO_ROOT}/assets/icons/v2ray-subscription-monitor.png" ]]; then
 	cp "${REPO_ROOT}/assets/icons/v2ray-subscription-monitor.png" "$ICON_SRC"
 elif command -v rsvg-convert >/dev/null 2>&1; then
